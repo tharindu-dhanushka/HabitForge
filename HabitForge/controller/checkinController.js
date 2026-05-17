@@ -1,10 +1,11 @@
-import Checkin from "../model/checkinModel.js";
+import Checkin from "../habitforge-backend/model/checkinModel.js";
+import Habit   from "../habitforge-backend/model/habitModel.js";
 
 // CHECK-IN
 export const checkinHabit = async (req, res) => {
   try {
     const habitId = req.params.id;
-    const today = new Date().toISOString().split("T")[0];
+    const today   = new Date().toISOString().split("T")[0];
 
     const exists = await Checkin.findOne({ habitId, date: today });
 
@@ -12,8 +13,14 @@ export const checkinHabit = async (req, res) => {
       return res.status(400).json({ message: "Already checked today" });
     }
 
-    const checkin = new Checkin({ habitId, date: today });
-    const saved = await checkin.save();
+    const completedAt = new Date();                             // ✅ exact timestamp
+
+    // Save checkin record
+    const checkin = new Checkin({ habitId, date: today, completedAt });
+    const saved   = await checkin.save();
+
+    // ✅ Also stamp completedAt directly on the habit document (visible in MongoDB Compass)
+    await Habit.findByIdAndUpdate(habitId, { completedAt });
 
     res.status(200).json(saved);
 

@@ -1,4 +1,5 @@
-import Habit from "../model/habitModel.js";
+import Habit   from "../habitforge-backend/model/habitModel.js";
+import Checkin from "../habitforge-backend/model/checkinModel.js";
 
 // CREATE
 export const createHabit = async (req, res) => {
@@ -11,14 +12,32 @@ export const createHabit = async (req, res) => {
   }
 };
 
-// READ
+// READ  (includes checkins + todayChecked + todayCompletedAt per habit)
 export const getHabits = async (req, res) => {
   try {
-    const habits = await Habit.find();
-    if (habits.length === 0) {
-      return res.status(404).json({ message: "No habits found" });
-    }
-    res.status(200).json(habits);
+    const habits   = await Habit.find();
+    const checkins = await Checkin.find();
+    const today    = new Date().toISOString().split("T")[0];
+
+    const habitsWithCheckins = habits.map((habit) => {
+      const habitCheckins = checkins.filter(
+        (ci) => ci.habitId.toString() === habit._id.toString()
+      );
+
+      // ✅ Check if there is a checkin for today in the checkins collection (handles old data better)
+      const todayCheckin = habitCheckins.find((ci) => ci.date === today);
+      const todayChecked = !!todayCheckin;
+
+      return {
+        ...habit.toObject(),
+        checkins:         habitCheckins,
+        todayChecked,
+        todayCompletedAt: todayCheckin?.completedAt || habit.completedAt || null,
+      };
+    });
+
+    // Return 200 + empty array (not 404) so the frontend handles it gracefully
+    res.status(200).json(habitsWithCheckins);
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error" });
   }
